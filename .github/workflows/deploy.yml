@@ -164,10 +164,13 @@ jobs:
           fi
 
       - name: After deploy script
-        if: ${{ secrets.AFTER_DEPLOY_SCRIPT != '' }}
+        env:
+          AFTER_DEPLOY_SCRIPT: ${{ secrets.AFTER_DEPLOY_SCRIPT }}
+          HASH: ${{ needs.build.outputs.sha_short }}
         run: |
-          hash=${{ needs.build.outputs.sha_short }}
-          ${{ secrets.AFTER_DEPLOY_SCRIPT }}
+          if [ -n "$AFTER_DEPLOY_SCRIPT" ]; then
+            eval "$AFTER_DEPLOY_SCRIPT"
+          fi
 
   store:
     name: Store artifact commit version

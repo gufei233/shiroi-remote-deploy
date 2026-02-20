@@ -105,8 +105,15 @@ jobs:
       - name: Checkout LFS objects
         run: git lfs checkout
 
-      - name: Write .env file
-        run: echo "${{ secrets.APP_ENV }}" > .env
+      - name: Fetch .env from server
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p ${SSH_PORT:-22} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          scp -P ${SSH_PORT:-22} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_COMPOSE_PATH }}/.env .env
+        env:
+          SSH_PORT: ${{ secrets.SSH_PORT }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

@@ -105,6 +105,9 @@ jobs:
       - name: Checkout LFS objects
         run: git lfs checkout
 
+      - name: Write .env file
+        run: echo "${{ secrets.APP_ENV }}" > .env
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

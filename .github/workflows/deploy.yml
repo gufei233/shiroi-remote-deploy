@@ -112,6 +112,8 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p ${SSH_PORT:-22} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
           scp -P ${SSH_PORT:-22} ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_COMPOSE_PATH }}/.env .env
+          # Ensure .dockerignore does not exclude .env
+          sed -i '/.env/d' .dockerignore 2>/dev/null || true
         env:
           SSH_PORT: ${{ secrets.SSH_PORT }}
 

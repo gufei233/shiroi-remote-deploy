@@ -1,12 +1,12 @@
-# Shiroi Dokploy Deploy
+# Shiroi Remote Deploy
 
-使用 GitHub Actions 构建 Shiroi Docker 镜像并通过 Dokploy 部署。
+使用 GitHub Actions 构建 Shiroi Docker 镜像，推送到 GHCR 私有仓库，通过 SSH 连接服务器拉取镜像并重启容器。
 
 ## 为什么？
 
 Shiroi 是 [Shiro](https://github.com/Innei/Shiro) 的闭源开发版本。
 
-由于 Next.js 构建需要大量内存，很多服务器无法承受这样的开销。此项目利用 GitHub Actions 构建 Docker 镜像，推送到 GitHub Container Registry (GHCR) 私有仓库，然后通过 Dokploy API 触发部署。
+由于 Next.js 构建需要大量内存，很多服务器无法承受这样的开销。此项目利用 GitHub Actions 构建 Docker 镜像，推送到 GitHub Container Registry (GHCR) 私有仓库，然后通过 SSH 连接服务器执行 `docker compose pull` 拉取新镜像并重启容器。
 
 ## 工作流程
 
@@ -17,48 +17,41 @@ GitHub Actions 构建镜像
        ↓
 推送到 GHCR (私有)
        ↓
-调用 Dokploy API 触发部署
+SSH 连接服务器
        ↓
-Dokploy 从 GHCR 拉取镜像并部署
+docker compose pull & up -d
 ```
 
 ## 配置步骤
 
-### 1. Dokploy 配置
+### 1. 服务器配置
 
-#### 添加 GHCR Registry
+#### 1Panel 添加 GHCR 私有镜像仓库
 
-在 Dokploy Dashboard → Settings → Registry → Add Registry：
+在 1Panel 面板 → 容器 → 仓库 → 添加仓库：
 
 | 字段 | 值 |
 |------|-----|
-| Name | `ghcr` |
-| Registry URL | `ghcr.io` |
-| Username | 你的 GitHub 用户名 |
-| Password | GitHub PAT (需要 `read:packages` 权限) |
+| 名称 | `ghcr` |
+| 地址 | `ghcr.io` |
+| 用户名 | 你的 GitHub 用户名 |
+| 密码 | GitHub PAT (需要 `read:packages` 权限) |
 
-#### 创建 Application
+#### docker-compose.yml
 
-1. 创建新的 Application，选择 **Docker** 类型
-2. 配置镜像：
-   - Registry: 选择刚才添加的 `ghcr`
-   - Image: `ghcr.io/<your-username>/shiroi`
-   - Tag: `latest`
-3. 配置环境变量（参考 Shiroi 文档）
-4. 配置端口映射、数据卷等
+在服务器上准备好 `docker-compose.yml`，例如：
 
-#### 获取 Application ID
-
-从 Dokploy URL 中提取，例如：
+```yaml
+services:
+  shiroi:
+    image: ghcr.io/<your-username>/shiroi:latest
+    restart: unless-stopped
+    ports:
+      - "2323:2323"
+    environment:
+      - NODE_ENV=production
+      # 其他环境变量参考 Shiroi 文档
 ```
-https://dokploy.example.com/dashboard/project/.../services/application/hdoihUG0FmYC8GdoFEc
-                                                                      └─────────────────┘
-                                                                        这就是 App ID
-```
-
-#### 生成 API Token
-
-Dokploy Dashboard → Profile → Generate API Key
 
 ### 2. GitHub Secrets 配置
 
@@ -67,10 +60,16 @@ Dokploy Dashboard → Profile → Generate API Key
 | Secret | 说明 |
 |--------|------|
 | `GH_PAT` | 可访问 Shiroi 私有仓库的 GitHub Token (需要 `repo` 权限) |
-| `DOKPLOY_URL` | Dokploy 实例地址，如 `https://dokploy.example.com` (不带尾部斜杠) |
-| `DOKPLOY_API_TOKEN` | Dokploy 生成的 API Key |
-| `DOKPLOY_APP_ID` | Dokploy Application ID |
-| `AFTER_DEPLOY_SCRIPT` | (可选) 部署后执行的脚本 |
+| `SSH_HOST` | 服务器 IP 或域名 |
+| `SSH_PORT` | SSH 端口（可选，默认 `22`） |
+| `SSH_USERNAME` | SSH 登录用户名 |
+| `SSH_KEY` | SSH 私钥（与 `SSH_PASSWORD` 二选一） |
+| `SSH_PASSWORD` | SSH 密码（与 `SSH_KEY` 二选一） |
+| `DEPLOY_COMPOSE_PATH` | 服务器上 `docker-compose.yml` 所在目录的绝对路径 |
+| `DEPLOY_SERVICE_NAME` | docker compose 中的服务名（如 `shiroi`） |
+| `AFTER_DEPLOY_SCRIPT` | (可选) 部署后在服务器上执行的脚本 |
+
+> SSH 认证支持 Key 和 Password 两种方式，配置其中一个即可。如果两个都配置了，优先使用 Key。
 
 ### 3. 创建 GitHub PAT
 
@@ -78,13 +77,14 @@ Dokploy Dashboard → Profile → Generate API Key
 2. Generate new token (classic)
 3. 选择权限：
    - `repo` - 访问私有仓库
-   - `read:packages` - 读取 packages (Dokploy 拉取镜像用)
+   - `read:packages` - 读取 packages (服务器拉取镜像用)
    - `write:packages` - 写入 packages (CI 推送镜像用，会自动获得)
 
 ## 触发部署
 
 - **自动触发**：Push 到 `main` 分支
-- **手动触发**：使用 `repository_dispatch` 事件
+- **手动触发**：Actions 页面手动 Dispatch，支持 `force_build` 参数强制重建
+- **外部触发**：使用 `repository_dispatch` 事件
 
 ## 镜像管理
 
@@ -101,15 +101,23 @@ Dokploy Dashboard → Profile → Generate API Key
 1. 检查 `GITHUB_TOKEN` 权限是否包含 `packages:write`
 2. 确认仓库 Settings → Actions → General → Workflow permissions 设置为 "Read and write permissions"
 
-### Dokploy 部署失败
+### SSH 连接失败
 
-1. 检查 `DOKPLOY_URL` 是否正确（不带尾部斜杠）
-2. 确认 `DOKPLOY_API_TOKEN` 有效
-3. 确认 `DOKPLOY_APP_ID` 正确
-4. 检查 Dokploy 中的 Registry 凭证是否正确
+1. 确认 `SSH_HOST`、`SSH_PORT`、`SSH_USERNAME` 配置正确
+2. 如果使用 Key 认证，确认 `SSH_KEY` 是完整的私钥（包含 `-----BEGIN` 和 `-----END`）
+3. 如果使用 Password 认证，确认 `SSH_PASSWORD` 正确
+4. 确认服务器防火墙允许 SSH 端口访问
+5. 检查 GitHub Actions 的 IP 是否被服务器安全组放行
 
-### Dokploy 拉取镜像失败
+### 镜像拉取失败
 
-1. 确认 Dokploy 中配置的 Registry 凭证正确
+1. 确认 1Panel 中配置的 GHCR 仓库凭证正确
 2. 确认 PAT 有 `read:packages` 权限
 3. 检查镜像地址是否正确：`ghcr.io/<username>/shiroi:latest`
+4. 在服务器上手动运行 `docker pull ghcr.io/<username>/shiroi:latest` 测试
+
+### 容器启动失败
+
+1. 检查 `DEPLOY_COMPOSE_PATH` 路径是否正确
+2. 检查 `DEPLOY_SERVICE_NAME` 是否与 `docker-compose.yml` 中的服务名一致
+3. 在服务器上运行 `docker compose logs <service-name>` 查看日志

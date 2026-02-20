@@ -39,18 +39,40 @@ docker compose pull & up -d
 
 #### docker-compose.yml
 
-在服务器上准备好 `docker-compose.yml`，例如：
+在服务器上准备好 `docker-compose.yml`与`.env`，例如：
 
 ```yaml
+version: '3'
+
 services:
   shiroi:
+    container_name: shiroi
     image: ghcr.io/<your-username>/shiroi:latest
-    restart: unless-stopped
+    env_file:
+      - .env
+    restart: always
     ports:
-      - "2323:2323"
-    environment:
-      - NODE_ENV=production
-      # 其他环境变量参考 Shiroi 文档
+      - 2323:2323
+```
+
+```
+# Env from https://github.com/innei-dev/Shiroi/blob/main/.env.template
+NEXT_PUBLIC_API_URL=
+NEXT_PUBLIC_GATEWAY_URL=
+
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+
+## Clerk
+CLERK_SECRET_KEY=
+
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+
+TMDB_API_KEY=
+
+GH_TOKEN=
 ```
 
 ### 2. GitHub Secrets 配置
@@ -59,7 +81,7 @@ services:
 
 | Secret | 说明 |
 |--------|------|
-| `GH_PAT` | 可访问 Shiroi 私有仓库的 GitHub Token (需要 `repo` 权限) |
+| `GH_PAT` | 可访问 Shiroi 私有仓库的 GitHub Token |
 | `SSH_HOST` | 服务器 IP 或域名 |
 | `SSH_PORT` | SSH 端口（可选，默认 `22`） |
 | `SSH_USERNAME` | SSH 登录用户名 |

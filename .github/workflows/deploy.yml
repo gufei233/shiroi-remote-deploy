@@ -154,11 +154,18 @@ jobs:
             docker compose pull ${{ secrets.DEPLOY_SERVICE_NAME }}
             docker compose up -d ${{ secrets.DEPLOY_SERVICE_NAME }}
 
-      - name: After deploy script
-        if: ${{ env.HAS_AFTER_DEPLOY_SCRIPT == 'true' }}
-        uses: appleboy/ssh-action@v1
+      - name: Check after deploy script
+        id: check_script
+        run: |
+          if [ -n "$AFTER_DEPLOY_SCRIPT" ]; then
+            echo "has_script=true" >> "$GITHUB_OUTPUT"
+          fi
         env:
-          HAS_AFTER_DEPLOY_SCRIPT: ${{ secrets.AFTER_DEPLOY_SCRIPT != '' }}
+          AFTER_DEPLOY_SCRIPT: ${{ secrets.AFTER_DEPLOY_SCRIPT }}
+
+      - name: After deploy script
+        if: steps.check_script.outputs.has_script == 'true'
+        uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT }}

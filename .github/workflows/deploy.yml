@@ -10,7 +10,7 @@ on:
       force_build:
         description: 'Force rebuild even if hash matches'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
   repository_dispatch:
@@ -59,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: gufei233/shiroi
+          repository: innei-dev/shiroi
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
           lfs: true
@@ -97,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          repository: gufei233/shiroi
+          repository: innei-dev/shiroi
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 1
           lfs: true

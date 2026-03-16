@@ -175,7 +175,10 @@ jobs:
           username: ${{ secrets.SSH_USERNAME }}
           key: ${{ secrets.SSH_KEY }}
           password: ${{ secrets.SSH_PASSWORD }}
+          envs: HASH
           script: ${{ secrets.AFTER_DEPLOY_SCRIPT }}
+        env:
+          HASH: ${{ needs.build.outputs.sha_short }}
 
   store:
     name: Store artifact commit version

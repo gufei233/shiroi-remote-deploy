@@ -1,17 +1,17 @@
-# Shiroi Remote Deploy
+# Yohaku Remote Deploy
 
-使用 GitHub Actions 构建 Shiroi Docker 镜像，推送到 GHCR 私有仓库，通过 SSH 连接服务器拉取镜像并重启容器。
+使用 GitHub Actions 构建 Yohaku Docker 镜像，推送到 GHCR 私有仓库，通过 SSH 连接服务器拉取镜像并重启容器。
 
 ## 为什么？
 
-Shiroi 是 [Shiro](https://github.com/Innei/Shiro) 的闭源开发版本。
+Yohaku（原 Shiroi）是 [Shiro](https://github.com/Innei/Shiro) 的闭源开发版本。
 
 由于 Next.js 构建需要大量内存，很多服务器无法承受这样的开销。此项目利用 GitHub Actions 构建 Docker 镜像，推送到 GitHub Container Registry (GHCR) 私有仓库，然后通过 SSH 连接服务器执行 `docker compose pull` 拉取新镜像并重启容器。
 
 ## 工作流程
 
 ```
-Shiroi 仓库 push
+Yohaku 仓库 push
        ↓
 GitHub Actions 构建镜像
        ↓
@@ -45,9 +45,9 @@ docker compose pull & up -d
 version: '3'
 
 services:
-  shiroi:
-    container_name: shiroi
-    image: ghcr.io/<your-username>/shiroi:latest
+  yohaku:
+    container_name: yohaku
+    image: ghcr.io/<your-username>/yohaku:latest
     env_file:
       - .env
     restart: always
@@ -57,6 +57,10 @@ services:
 
 ```
 # Env from https://github.com/innei-dev/Shiroi/blob/main/.env.template
+
+# API_URL 用于服务端渲染 (SSR)，不会被 Next.js 构建时静态替换
+API_URL=
+# NEXT_PUBLIC_* 变量通过 next-runtime-env 在客户端运行时注入
 NEXT_PUBLIC_API_URL=
 NEXT_PUBLIC_GATEWAY_URL=
 
@@ -75,20 +79,22 @@ TMDB_API_KEY=
 GH_TOKEN=
 ```
 
+> **重要**：`API_URL` 必须设置，否则 SSR 时会因为相对路径 `/api/v2` 缺少 origin 而报错。`API_URL` 的值与 `NEXT_PUBLIC_API_URL` 相同即可（如 `https://your-domain.com/api/v2`）。
+
 ### 2. GitHub Secrets 配置
 
 在此仓库的 Settings → Secrets and variables → Actions 中添加：
 
 | Secret | 说明 |
 |--------|------|
-| `GH_PAT` | 可访问 Shiroi 私有仓库的 GitHub Token |
+| `GH_PAT` | 可访问 Yohaku 私有仓库的 GitHub Token |
 | `SSH_HOST` | 服务器 IP 或域名 |
 | `SSH_PORT` | SSH 端口（可选，默认 `22`） |
 | `SSH_USERNAME` | SSH 登录用户名 |
 | `SSH_KEY` | SSH 私钥（与 `SSH_PASSWORD` 二选一） |
 | `SSH_PASSWORD` | SSH 密码（与 `SSH_KEY` 二选一） |
 | `DEPLOY_COMPOSE_PATH` | 服务器上 `docker-compose.yml` 所在目录的绝对路径 |
-| `DEPLOY_SERVICE_NAME` | docker compose 中的服务名（如 `shiroi`） |
+| `DEPLOY_SERVICE_NAME` | docker compose 中的服务名（如 `yohaku`） |
 | `AFTER_DEPLOY_SCRIPT` | (可选) 部署后在服务器上执行的脚本 |
 
 > SSH 认证支持 Key 和 Password 两种方式，配置其中一个即可。如果两个都配置了，优先使用 Key。
@@ -110,7 +116,7 @@ GH_TOKEN=
 
 ## 镜像管理
 
-镜像存储在 GHCR 私有仓库：`ghcr.io/<username>/shiroi`
+镜像存储在 GHCR 私有仓库：`ghcr.io/<username>/yohaku`
 
 每次构建会生成两个 tag：
 - `latest` - 最新版本
@@ -135,11 +141,15 @@ GH_TOKEN=
 
 1. 确认 1Panel 中配置的 GHCR 仓库凭证正确
 2. 确认 PAT 有 `read:packages` 权限
-3. 检查镜像地址是否正确：`ghcr.io/<username>/shiroi:latest`
-4. 在服务器上手动运行 `docker pull ghcr.io/<username>/shiroi:latest` 测试
+3. 检查镜像地址是否正确：`ghcr.io/<username>/yohaku:latest`
+4. 在服务器上手动运行 `docker pull ghcr.io/<username>/yohaku:latest` 测试
 
 ### 容器启动失败
 
 1. 检查 `DEPLOY_COMPOSE_PATH` 路径是否正确
 2. 检查 `DEPLOY_SERVICE_NAME` 是否与 `docker-compose.yml` 中的服务名一致
 3. 在服务器上运行 `docker compose logs <service-name>` 查看日志
+
+### SSR 报错 "Relative API base URL requires a request origin"
+
+确认 `.env` 中设置了 `API_URL`（完整的绝对 URL）。`NEXT_PUBLIC_API_URL` 会被 Next.js 在构建时静态替换，运行时无法被服务端读取，因此需要额外的 `API_URL` 供 SSR 使用。

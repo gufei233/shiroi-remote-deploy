@@ -27,7 +27,7 @@ concurrency:
 env:
   HASH_FILE: build_hash
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/shiroi
+  IMAGE_NAME: ${{ github.repository_owner }}/yohaku
 
 jobs:
   prepare:

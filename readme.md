@@ -88,6 +88,7 @@ GH_TOKEN=
 | Secret | 说明 |
 |--------|------|
 | `GH_PAT` | 可访问 Yohaku 私有仓库的 GitHub Token |
+| `BASE_URL` | 站点根 URL（如 `https://your-domain.com`），用于构建时设置 `NEXT_PUBLIC_API_URL` |
 | `SSH_HOST` | 服务器 IP 或域名 |
 | `SSH_PORT` | SSH 端口（可选，默认 `22`） |
 | `SSH_USERNAME` | SSH 登录用户名 |
@@ -95,7 +96,7 @@ GH_TOKEN=
 | `SSH_PASSWORD` | SSH 密码（与 `SSH_KEY` 二选一） |
 | `DEPLOY_COMPOSE_PATH` | 服务器上 `docker-compose.yml` 所在目录的绝对路径 |
 | `DEPLOY_SERVICE_NAME` | docker compose 中的服务名（如 `yohaku`） |
-| `AFTER_DEPLOY_SCRIPT` | (可选) 部署后在服务器上执行的脚本 |
+| `AFTER_DEPLOY_SCRIPT` | (可选) 部署后在服务器上执行的脚本，可使用 `$HASH` 变量获取部署的 commit hash |
 
 > SSH 认证支持 Key 和 Password 两种方式，配置其中一个即可。如果两个都配置了，优先使用 Key。
 

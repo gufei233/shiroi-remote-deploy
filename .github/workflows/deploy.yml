@@ -158,6 +158,7 @@ jobs:
             cd ${{ secrets.DEPLOY_COMPOSE_PATH }}
             docker compose pull ${{ secrets.DEPLOY_SERVICE_NAME }}
             docker compose up -d ${{ secrets.DEPLOY_SERVICE_NAME }}
+            docker image prune -f
 
       - name: Check after deploy script
         id: check_script

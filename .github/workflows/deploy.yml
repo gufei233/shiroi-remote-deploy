@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+  schedule:
+    # 每天 UTC 20:20（北京时间 04:20）自动检查上游更新
+    - cron: '20 20 * * *'
+
   workflow_dispatch:
     inputs:
       force_build:

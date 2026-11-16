@@ -113,6 +113,7 @@ GH_TOKEN=
 ## 触发部署
 
 - **自动触发**：Push 到 `main` 分支
+- **定时触发**：每天北京时间 04:20（UTC 20:20）自动检查上游仓库更新，仅在有新提交时构建部署
 - **手动触发**：Actions 页面手动 Dispatch，支持 `force_build` 参数强制重建
 - **外部触发**：使用 `repository_dispatch` 事件
 

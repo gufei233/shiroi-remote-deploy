@@ -185,6 +185,41 @@ jobs:
         env:
           HASH: ${{ needs.build.outputs.sha_short }}
 
+      - name: Notify Bark
+        if: ${{ success() }}
+        continue-on-error: true
+        env:
+          BARK_URL: ${{ secrets.BARK_URL }}
+          SHA_SHORT: ${{ needs.build.outputs.sha_short }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          FORCE_BUILD: ${{ github.event.inputs.force_build || '' }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          if [ -z "${BARK_URL:-}" ]; then
+            echo "::notice::BARK_URL is not set; skipping Bark notification."
+            exit 0
+          fi
+
+          BARK_ENDPOINT="$(printf '%s' "$BARK_URL" | tr -d '[:space:]')"
+          BARK_ENDPOINT="${BARK_ENDPOINT%/}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY=$(printf "Commit: %s\nImage: ghcr.io/%s:%s\nTrigger: %s #%s" \
+            "$SHA_SHORT" "$IMAGE_NAME" "$SHA_SHORT" "$GITHUB_EVENT_NAME" "$GITHUB_RUN_NUMBER")
+          if [ "${FORCE_BUILD,,}" = "true" ]; then
+            BODY="${BODY} (force)"
+          fi
+
+          jq -n \
+            --arg title "🚀 Yohaku 部署成功" \
+            --arg body "$BODY" \
+            --arg group "yohaku-deploy" \
+            --arg url "$RUN_URL" \
+            '{title: $title, body: $body, group: $group, url: $url, level: "active"}' \
+            | curl -sS -f --max-time 15 -X POST "$BARK_ENDPOINT" \
+              -H "Content-Type: application/json; charset=utf-8" \
+              -d @-
+
   store:
     name: Store artifact commit version
     runs-on: ubuntu-latest
@@ -216,3 +251,59 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.ref }}
+
+  notify-failure:
+    name: Notify Bark (on failure)
+    runs-on: ubuntu-latest
+    needs: [prepare, check, build, deploy, store]
+    if: ${{ always() && (needs.prepare.result == 'failure' || needs.check.result == 'failure' || needs.build.result == 'failure' || needs.deploy.result == 'failure' || needs.store.result == 'failure') }}
+
+    steps:
+      - name: Notify Bark
+        continue-on-error: true
+        env:
+          BARK_URL: ${{ secrets.BARK_URL }}
+          RES_PREPARE: ${{ needs.prepare.result }}
+          RES_CHECK: ${{ needs.check.result }}
+          RES_BUILD: ${{ needs.build.result }}
+          RES_DEPLOY: ${{ needs.deploy.result }}
+          RES_STORE: ${{ needs.store.result }}
+          SHA_SHORT: ${{ needs.check.outputs.sha_short || '' }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          if [ -z "${BARK_URL:-}" ]; then
+            echo "::notice::BARK_URL is not set; skipping Bark notification."
+            exit 0
+          fi
+
+          FAILED_JOBS=""
+          for pair in \
+            "prepare:$RES_PREPARE" \
+            "check:$RES_CHECK" \
+            "build:$RES_BUILD" \
+            "deploy:$RES_DEPLOY" \
+            "store:$RES_STORE"; do
+            name="${pair%%:*}"
+            res="${pair#*:}"
+            if [ "$res" = "failure" ]; then
+              FAILED_JOBS="${FAILED_JOBS:+${FAILED_JOBS}, }${name}"
+            fi
+          done
+          FAILED_JOBS="${FAILED_JOBS:-unknown}"
+
+          BARK_ENDPOINT="$(printf '%s' "$BARK_URL" | tr -d '[:space:]')"
+          BARK_ENDPOINT="${BARK_ENDPOINT%/}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY=$(printf "Failed job: %s\nCommit: %s\nTrigger: %s #%s" \
+            "$FAILED_JOBS" "${SHA_SHORT:-N/A}" "$GITHUB_EVENT_NAME" "$GITHUB_RUN_NUMBER")
+
+          jq -n \
+            --arg title "❌ Yohaku 部署失败" \
+            --arg body "$BODY" \
+            --arg group "yohaku-deploy" \
+            --arg url "$RUN_URL" \
+            '{title: $title, body: $body, group: $group, url: $url, level: "timeSensitive"}' \
+            | curl -sS -f --max-time 15 -X POST "$BARK_ENDPOINT" \
+              -H "Content-Type: application/json; charset=utf-8" \
+              -d @-

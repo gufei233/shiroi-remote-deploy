@@ -97,6 +97,7 @@ GH_TOKEN=
 | `DEPLOY_COMPOSE_PATH` | 服务器上 `docker-compose.yml` 所在目录的绝对路径 |
 | `DEPLOY_SERVICE_NAME` | docker compose 中的服务名（如 `yohaku`） |
 | `AFTER_DEPLOY_SCRIPT` | (可选) 部署后在服务器上执行的脚本，可使用 `$HASH` 变量获取部署的 commit hash |
+| `BARK_URL` | (可选) Bark 推送地址（如 `https://api.day.app/<your-key>`），用于接收部署成功/失败通知 |
 
 > SSH 认证支持 Key 和 Password 两种方式，配置其中一个即可。如果两个都配置了，优先使用 Key。
 
